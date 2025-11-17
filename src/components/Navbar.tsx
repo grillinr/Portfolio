@@ -1,21 +1,20 @@
-import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
 
 export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false)
-  const location = useLocation()
+  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
 
   const navItems = [
     { name: "Home", path: "/" },
     { name: "Projects", path: "/projects" },
     { name: "Blog", path: "/blog" },
-    { name: "Admin", path: "/admin" }
-  ]
+  ];
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="text-xl font-bold">
@@ -69,5 +68,6 @@ export default function Navbar() {
         )}
       </div>
     </nav>
-  )
+  );
 }
+

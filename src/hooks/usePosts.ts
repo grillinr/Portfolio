@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 export interface Post {
   id: string
@@ -9,12 +9,10 @@ export interface Post {
 }
 
 export function usePosts() {
-  const [posts, setPosts] = useState<Post[]>([])
-
-  useEffect(() => {
+  const [posts, setPosts] = useState<Post[]>(() => {
     const stored = localStorage.getItem('portfolio-posts')
     if (stored) {
-      setPosts(JSON.parse(stored))
+      return JSON.parse(stored)
     } else {
       // Add sample post for testing
       const samplePost: Post = {
@@ -55,10 +53,11 @@ Enjoy reading my blog posts!`,
         date: new Date().toISOString().split('T')[0],
         slug: 'welcome-to-my-portfolio-blog'
       }
-      setPosts([samplePost])
-      localStorage.setItem('portfolio-posts', JSON.stringify([samplePost]))
+      const initialPosts = [samplePost]
+      localStorage.setItem('portfolio-posts', JSON.stringify(initialPosts))
+      return initialPosts
     }
-  }, [])
+  })
 
   const addPost = (post: Omit<Post, 'id' | 'date' | 'slug'>) => {
     const newPost: Post = {
@@ -78,5 +77,15 @@ Enjoy reading my blog posts!`,
     localStorage.setItem('portfolio-posts', JSON.stringify(updated))
   }
 
-  return { posts, addPost, deletePost }
+  const editPost = (id: string, updatedPost: Omit<Post, 'id' | 'date' | 'slug'>) => {
+    const updated = posts.map(p =>
+      p.id === id
+        ? { ...p, ...updatedPost, slug: updatedPost.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') }
+        : p
+    )
+    setPosts(updated)
+    localStorage.setItem('portfolio-posts', JSON.stringify(updated))
+  }
+
+  return { posts, addPost, deletePost, editPost }
 }
