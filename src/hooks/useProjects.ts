@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export interface Project {
   id: string;
@@ -8,42 +8,62 @@ export interface Project {
   image?: string;
   video?: string;
   languages?: string[];
+  slug: string;
 }
 
-export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const stored = localStorage.getItem('portfolio-projects')
-    if (stored) {
-      return JSON.parse(stored)
-    } else {
-      return []
+function parseFrontmatter(content: string): { data: Record<string, string>, body: string } {
+  const lines = content.split('\n')
+  if (lines[0] !== '---') return { data: {}, body: content }
+
+  const endIndex = lines.indexOf('---', 1)
+  if (endIndex === -1) return { data: {}, body: content }
+
+  const frontmatter = lines.slice(1, endIndex).join('\n')
+  const body = lines.slice(endIndex + 1).join('\n')
+
+  const data: Record<string, string> = {}
+  frontmatter.split('\n').forEach(line => {
+    const [key, ...valueParts] = line.split(':')
+    if (key && valueParts.length) {
+      data[key.trim()] = valueParts.join(':').trim()
     }
   })
 
-  const addProject = (project: Omit<Project, "id">) => {
-    const newProject: Project = {
-      ...project,
-      id: Date.now().toString(),
-    };
-    const updated = [newProject, ...projects];
-    setProjects(updated);
-    localStorage.setItem('portfolio-projects', JSON.stringify(updated))
-  };
+  return { data, body }
+}
 
-  const deleteProject = (id: string) => {
-    const updated = projects.filter((p) => p.id !== id);
-    setProjects(updated);
-    localStorage.setItem('portfolio-projects', JSON.stringify(updated))
-  };
+export function useProjects() {
+  const [projects, setProjects] = useState<Project[]>([])
 
-  const editProject = (id: string, updatedProject: Omit<Project, "id">) => {
-    const updated = projects.map((p) =>
-      p.id === id ? { ...p, ...updatedProject } : p,
-    );
-    setProjects(updated);
-    localStorage.setItem('portfolio-projects', JSON.stringify(updated))
-  };
+  useEffect(() => {
+    const loadProjects = async () => {
+      const projectModules = import.meta.glob('../content/projects/*.md', { as: 'raw' })
+      const loadedProjects: Project[] = []
 
-  return { projects, addProject, deleteProject, editProject };
+      for (const path in projectModules) {
+        const rawContent = await projectModules[path]()
+        const { data, body } = parseFrontmatter(rawContent)
+        const slug = path.split('/').pop()?.replace('.md', '') || ''
+        const languages = data.languages ? data.languages.split(',').map((l: string) => l.trim()) : undefined
+        const project: Project = {
+          id: slug,
+          title: data.title || 'Untitled',
+          description: data.description || body.trim() || '',
+          github: data.github || '',
+          image: data.image,
+          video: data.video,
+          languages,
+          slug
+        }
+        loadedProjects.push(project)
+      }
+
+      setProjects(loadedProjects)
+    }
+
+    loadProjects()
+  }, [])
+
+  return { projects }
 }
 

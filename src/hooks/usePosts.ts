@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export interface Post {
   id: string
@@ -8,84 +8,56 @@ export interface Post {
   slug: string
 }
 
-export function usePosts() {
-  const [posts, setPosts] = useState<Post[]>(() => {
-    const stored = localStorage.getItem('portfolio-posts')
-    if (stored) {
-      return JSON.parse(stored)
-    } else {
-      // Add sample post for testing
-      const samplePost: Post = {
-        id: 'sample-1',
-        title: 'Welcome to My Portfolio Blog',
-        content: `# Welcome to My Portfolio Blog
+function parseFrontmatter(content: string): { data: Record<string, string>, body: string } {
+  const lines = content.split('\n')
+  if (lines[0] !== '---') return { data: {}, body: content }
 
-This is a sample blog post to demonstrate the markdown functionality.
+  const endIndex = lines.indexOf('---', 1)
+  if (endIndex === -1) return { data: {}, body: content }
 
-## Features
+  const frontmatter = lines.slice(1, endIndex).join('\n')
+  const body = lines.slice(endIndex + 1).join('\n')
 
-- **Bold text** and *italic text*
-- [Links](https://example.com)
-- Code blocks:
-
-\`\`\`javascript
-function hello() {
-  console.log("Hello, World!");
-}
-\`\`\`
-
-- Lists:
-  - Item 1
-  - Item 2
-  - Item 3
-
-### Tables
-
-| Feature | Status |
-|---------|--------|
-| Markdown | ✅ |
-| Tables | ✅ |
-| Code | ✅ |
-
-> This is a blockquote
-
-Enjoy reading my blog posts!`,
-        date: new Date().toISOString().split('T')[0],
-        slug: 'welcome-to-my-portfolio-blog'
-      }
-      const initialPosts = [samplePost]
-      localStorage.setItem('portfolio-posts', JSON.stringify(initialPosts))
-      return initialPosts
+  const data: Record<string, string> = {}
+  frontmatter.split('\n').forEach(line => {
+    const [key, ...valueParts] = line.split(':')
+    if (key && valueParts.length) {
+      data[key.trim()] = valueParts.join(':').trim()
     }
   })
 
-  const addPost = (post: Omit<Post, 'id' | 'date' | 'slug'>) => {
-    const newPost: Post = {
-      ...post,
-      id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-      slug: post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+  return { data, body }
+}
+
+export function usePosts() {
+  const [posts, setPosts] = useState<Post[]>([])
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      const postModules = import.meta.glob('../content/posts/*.md', { as: 'raw' })
+      const loadedPosts: Post[] = []
+
+      for (const path in postModules) {
+        const rawContent = await postModules[path]()
+        const { data, body } = parseFrontmatter(rawContent)
+        const slug = path.split('/').pop()?.replace('.md', '') || ''
+        const post: Post = {
+          id: slug,
+          title: data.title || 'Untitled',
+          content: body.trim(),
+          date: data.date || '',
+          slug
+        }
+        loadedPosts.push(post)
+      }
+
+      // Sort by date descending
+      loadedPosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      setPosts(loadedPosts)
     }
-    const updated = [newPost, ...posts]
-    setPosts(updated)
-    localStorage.setItem('portfolio-posts', JSON.stringify(updated))
-  }
 
-  const deletePost = (id: string) => {
-    const updated = posts.filter(p => p.id !== id)
-    setPosts(updated)
-    localStorage.setItem('portfolio-posts', JSON.stringify(updated))
-  }
+    loadPosts()
+  }, [])
 
-  const editPost = (id: string, updatedPost: Omit<Post, 'id' | 'date' | 'slug'>) => {
-    const updated = posts.map(p =>
-      p.id === id
-        ? { ...p, ...updatedPost, slug: updatedPost.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') }
-        : p
-    )
-    setPosts(updated)
-    localStorage.setItem('portfolio-posts', JSON.stringify(updated))
-  }
-
-  return { posts, addPost, deletePost, editPost }
+  return { posts }
 }

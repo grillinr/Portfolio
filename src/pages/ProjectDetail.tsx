@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
 export default function ProjectDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { projects } = useProjects();
-  const project = projects.find((p) => p.id === id);
+  const project = projects.find((p) => p.slug === slug);
 
   if (!project) {
     return (
